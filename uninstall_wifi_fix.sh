@@ -1,17 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SERVICE_NAME="rtw8821cu-load.service"
-SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}"
+SERVICE_NAMES=(
+  "rtl8821cu-wifi-fix.service"
+  "rtw8821cu-load.service"
+)
+MODULE_NAMES=(
+  "8821cu"
+  "rtw_8821cu"
+)
+WORKDIR="/usr/local/src/rtl8821cu-driver"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Запусти скрипт через sudo: sudo bash uninstall_wifi_fix.sh" >&2
   exit 1
 fi
 
-systemctl disable --now "$SERVICE_NAME" 2>/dev/null || true
-rm -f "$SERVICE_PATH"
-systemctl daemon-reload
-/usr/sbin/rmmod rtw_8821cu 2>/dev/null || true
+for service in "${SERVICE_NAMES[@]}"; do
+  systemctl disable --now "$service" 2>/dev/null || true
+  rm -f "/etc/systemd/system/${service}"
+done
 
-echo "Фикс удалён."
+systemctl daemon-reload
+
+for module in "${MODULE_NAMES[@]}"; do
+  modprobe -r "$module" 2>/dev/null || /usr/sbin/rmmod "$module" 2>/dev/null || true
+done
+
+rm -rf "$WORKDIR"
+
+echo "Фикс удалён (сервисы и загруженные модули остановлены)."
